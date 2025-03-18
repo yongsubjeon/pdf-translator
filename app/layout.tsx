@@ -1,14 +1,13 @@
-import type React from "react"
-import "./globals.css"
+import "@/styles/globals.css"
+import type { Metadata } from "next"
 import { Inter } from "next/font/google"
 import { ThemeProvider } from "@/components/theme-provider"
 
 const inter = Inter({ subsets: ["latin"] })
 
-export const metadata = {
-  title: "Doclingo - AI-Powered Document Translation Tool",
-  description: "Convert the content of PDF files into different languages, perfectly retaining the original layout",
-  generator: 'v0.dev'
+export const metadata: Metadata = {
+  title: "PDF 번역 서비스",
+  description: "PDF 파일을 다양한 언어로 번역해주는 서비스입니다.",
 }
 
 export default function RootLayout({
@@ -17,9 +16,14 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="ko" suppressHydrationWarning>
+    <html lang="ko">
       <body className={inter.className}>
-        <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false} disableTransitionOnChange>
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="light"
+          enableSystem
+          disableTransitionOnChange
+        >
           {children}
         </ThemeProvider>
       </body>

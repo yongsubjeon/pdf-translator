@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useDropzone } from "react-dropzone";
 import { Progress } from "@/components/ui/progress";
 import { useRouter } from "next/navigation";
+import Navigation from "@/components/navigation";
 
 export default function PDFTranslatePage() {
   const router = useRouter();
@@ -66,6 +67,16 @@ export default function PDFTranslatePage() {
         await handleUpload(acceptedFiles[0]);
       }
     },
+    onDropRejected: (fileRejections) => {
+      const error = fileRejections[0]?.errors[0];
+      if (error?.code === 'file-too-large') {
+        setError("파일 크기가 너무 큽니다. 50MB 이하의 파일만 업로드 가능합니다.");
+      } else if (error?.code === 'file-invalid-type') {
+        setError("PDF 파일만 업로드 가능합니다.");
+      } else {
+        setError("파일 업로드 중 오류가 발생했습니다.");
+      }
+    }
   });
 
   const handleUpload = async (uploadedFile: File) => {
@@ -97,6 +108,19 @@ export default function PDFTranslatePage() {
         setTranslationUrl(data.translatedPDF);
         setFileName(data.fileName);
         setProgress(100);
+
+        // 최근 문서 저장
+        saveRecentDocument({
+          id: data.fileName,
+          title: uploadedFile.name || `PDF 문서 ${new Date().toLocaleDateString()}`,
+          date: new Date().toISOString(),
+          url: `/viewer?oldPDF=${data.originalPDF}&newPDF=${data.translatedPDF}&filename=${data.fileName}`
+        });
+
+        // 완료 후 뷰어로 이동
+        setTimeout(() => {
+          router.push(`/viewer?oldPDF=${data.originalPDF}&newPDF=${data.translatedPDF}&filename=${data.fileName}`);
+        }, 1000);
       } else {
         throw new Error(data.error || "Translation failed");
       }
@@ -108,54 +132,97 @@ export default function PDFTranslatePage() {
     }
   };
 
+  // 최근 문서 저장 함수
+  const saveRecentDocument = (document: {
+    id: string;
+    title: string;
+    date: string;
+    url: string;
+  }) => {
+    try {
+      // 로컬 스토리지에서 기존 문서 목록 가져오기
+      const storedDocs = localStorage.getItem("recentDocuments");
+      let documents = storedDocs ? JSON.parse(storedDocs) : [];
+
+      // 중복 제거 (같은 ID가 있으면 제거)
+      documents = documents.filter((doc: any) => doc.id !== document.id);
+
+      // 새 문서 추가 (최대 5개만 유지)
+      documents.unshift(document);
+      if (documents.length > 5) {
+        documents = documents.slice(0, 5);
+      }
+
+      // 저장
+      localStorage.setItem("recentDocuments", JSON.stringify(documents));
+    } catch (e) {
+      console.error("문서 저장 중 오류 발생:", e);
+    }
+  };
+
   return (
-    <div className="container mx-auto p-8">
-      <h1 className="text-3xl font-bold mb-8">PDF 번역</h1>
+    <div className="min-h-screen bg-gray-50">
+      <Navigation />
       
-      {!file && !isTranslating && (
-        <div
-          {...getRootProps()}
-          className="border-2 border-dashed border-gray-300 rounded-lg p-12 text-center cursor-pointer hover:border-gray-400 transition-colors"
-        >
-          <input {...getInputProps()} />
-          <p className="text-lg mb-2">PDF 파일을 드래그하여 업로드하거나 클릭하여 선택하세요</p>
-          <p className="text-sm text-gray-500">최대 500페이지, 50MB까지 가능</p>
-        </div>
-      )}
-
-      {(file || isTranslating) && (
-        <div className="mt-8">
-          <h2 className="text-xl font-semibold mb-4">
-            {file?.name}
-          </h2>
-          <div className="space-y-4">
-            <Progress value={progress} className="w-full" />
-            <p className="text-sm text-gray-600">
-              {progress === 100 ? "번역 완료! 뷰어 페이지로 이동 중..." : `번역 중... ${progress}%`}
-            </p>
+      <div className="container mx-auto p-8">
+        <h1 className="text-3xl font-bold mb-8">PDF 번역</h1>
+        
+        {!file && !isTranslating && (
+          <div
+            {...getRootProps()}
+            className="border-2 border-dashed border-gray-300 rounded-lg p-12 text-center cursor-pointer hover:border-gray-400 transition-colors"
+          >
+            <input {...getInputProps()} />
+            <p className="text-lg mb-2">PDF 파일을 드래그하여 업로드하거나 클릭하여 선택하세요</p>
+            <p className="text-sm text-gray-500">최대 500페이지, 50MB까지 가능</p>
           </div>
-        </div>
-      )}
+        )}
 
-      {error && (
-        <div className="mt-8 p-4 bg-red-50 rounded-lg">
-          <p className="text-red-700">{error}</p>
-        </div>
-      )}
+        {(file || isTranslating) && (
+          <div className="mt-8">
+            <h2 className="text-xl font-semibold mb-4">
+              {file?.name}
+            </h2>
+            <div className="space-y-4">
+              <Progress value={progress} className="w-full" />
+              <p className="text-sm text-gray-600">
+                {progress === 100 ? "번역 완료! 뷰어 페이지로 이동 중..." : `번역 중... ${progress}%`}
+              </p>
+            </div>
+          </div>
+        )}
 
-      {translationUrl && !isTranslating && (
-        <div className="mt-8 p-4 bg-green-50 rounded-lg">
-          <p className="text-green-700">번역이 완료되었습니다!</p>
-          <div className="flex space-x-4 mt-2">
+        {error && (
+          <div className="mt-8 p-4 bg-red-50 rounded-lg">
+            <p className="text-red-700">{error}</p>
+          </div>
+        )}
+
+        {file && !isTranslating && !translationUrl && (
+          <div className="mt-8 flex justify-center">
             <button
-              onClick={() => router.push(`/viewer?oldPDF=${originalUrl}&newPDF=${translationUrl}&filename=${fileName}`)}
-              className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
+              onClick={() => handleUpload(file)}
+              className="px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
             >
-              양쪽 분할 뷰어로 보기
+              번역 시작
             </button>
           </div>
-        </div>
-      )}
+        )}
+
+        {translationUrl && !isTranslating && (
+          <div className="mt-8 p-4 bg-green-50 rounded-lg">
+            <p className="text-green-700">번역이 완료되었습니다!</p>
+            <div className="flex space-x-4 mt-2">
+              <button
+                onClick={() => router.push(`/viewer?oldPDF=${originalUrl}&newPDF=${translationUrl}&filename=${fileName}`)}
+                className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
+              >
+                양쪽 분할 뷰어로 보기
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 } 

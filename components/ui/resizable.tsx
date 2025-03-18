@@ -42,4 +42,10 @@ const ResizableHandle = ({
   </ResizablePrimitive.PanelResizeHandle>
 )
 
-export { ResizablePanelGroup, ResizablePanel, ResizableHandle }
+// 수정된 export: Resizable 객체에 Handle과 Panel 속성 추가
+const Resizable = Object.assign(ResizablePanelGroup, {
+  Panel: ResizablePanel,
+  Handle: ResizableHandle
+})
+
+export { Resizable, ResizablePanel, ResizableHandle }
